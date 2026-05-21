@@ -3,6 +3,7 @@ package com.jarvis.app;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.Environment;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -13,9 +14,10 @@ import android.widget.Button;
 import android.widget.ScrollView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import okhttp3.*;
 import org.json.JSONObject;
+import org.json.JSONArray;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Locale;
 
@@ -86,15 +88,50 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     JSONObject obj = new JSONObject(text);
                     String reply = obj.getString("reply");
-                    runOnUiThread(() -> appendChat("Jarvis: " + reply));
+                    // Verificar si Jarvis pide lista de archivos
+                    if (obj.has("action") && obj.getString("action").equals("list_files")) {
+                        String path = obj.optString("path", Environment.getExternalStorageDirectory().getAbsolutePath());
+                        sendFileList(path);
+                        return;
+                    }
+                    String clean = removeMarkdown(reply);
+                    runOnUiThread(() -> appendChat("Jarvis: " + clean));
                 } catch (Exception e) { e.printStackTrace(); }
             }
             @Override
             public void onFailure(WebSocket ws, Throwable t, Response r) {
-                runOnUiThread(() -> appendChat("[Error de conexión, reintentando...]"));
+                runOnUiThread(() -> appendChat("[Reconectando...]"));
                 reconnect();
             }
         });
+    }
+
+    private String removeMarkdown(String text) {
+        return text
+            .replaceAll("\\*\\*(.*?)\\*\\*", "$1")
+            .replaceAll("\\*(.*?)\\*", "$1")
+            .replaceAll("#{1,6}\\s", "")
+            .replaceAll("`(.*?)`", "$1");
+    }
+
+    private void sendFileList(String path) {
+        try {
+            File dir = new File(path);
+            File[] files = dir.listFiles();
+            JSONArray arr = new JSONArray();
+            if (files != null) {
+                for (File f : files) {
+                    JSONObject fo = new JSONObject();
+                    fo.put("name", f.getName());
+                    fo.put("isDir", f.isDirectory());
+                    fo.put("size", f.length());
+                    arr.put(fo);
+                }
+            }
+            JSONObject msg = new JSONObject();
+            msg.put("text", "Lista de archivos en " + path + ": " + arr.toString());
+            webSocket.send(msg.toString());
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void reconnect() {
