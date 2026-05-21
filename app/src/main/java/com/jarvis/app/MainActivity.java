@@ -1,7 +1,6 @@
 package com.jarvis.app;
 
 import android.Manifest;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Environment;
 import android.speech.RecognitionListener;
@@ -19,7 +18,6 @@ import org.json.JSONObject;
 import org.json.JSONArray;
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -31,6 +29,11 @@ public class MainActivity extends AppCompatActivity {
     private SpeechRecognizer speechRecognizer;
     private boolean isListening = false;
     private String deviceId;
+
+    private static final String[] FILE_KEYWORDS = {
+        "archivos", "carpetas", "archivo", "carpeta", "tengo", "storage",
+        "descargas", "documentos", "fotos", "música", "videos"
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -88,12 +91,6 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     JSONObject obj = new JSONObject(text);
                     String reply = obj.getString("reply");
-                    // Verificar si Jarvis pide lista de archivos
-                    if (obj.has("action") && obj.getString("action").equals("list_files")) {
-                        String path = obj.optString("path", Environment.getExternalStorageDirectory().getAbsolutePath());
-                        sendFileList(path);
-                        return;
-                    }
                     String clean = removeMarkdown(reply);
                     runOnUiThread(() -> appendChat("Jarvis: " + clean));
                 } catch (Exception e) { e.printStackTrace(); }
@@ -114,7 +111,15 @@ public class MainActivity extends AppCompatActivity {
             .replaceAll("`(.*?)`", "$1");
     }
 
-    private void sendFileList(String path) {
+    private boolean hasFileKeyword(String text) {
+        String lower = text.toLowerCase();
+        for (String kw : FILE_KEYWORDS) {
+            if (lower.contains(kw)) return true;
+        }
+        return false;
+    }
+
+    private String getFileList(String path) {
         try {
             File dir = new File(path);
             File[] files = dir.listFiles();
@@ -122,27 +127,29 @@ public class MainActivity extends AppCompatActivity {
             if (files != null) {
                 for (File f : files) {
                     JSONObject fo = new JSONObject();
-                    fo.put("name", f.getName());
-                    fo.put("isDir", f.isDirectory());
-                    fo.put("size", f.length());
+                    fo.put("nombre", f.getName());
+                    fo.put("tipo", f.isDirectory() ? "carpeta" : "archivo");
+                    fo.put("tamaño_kb", f.length() / 1024);
                     arr.put(fo);
                 }
             }
-            JSONObject msg = new JSONObject();
-            msg.put("text", "Lista de archivos en " + path + ": " + arr.toString());
-            webSocket.send(msg.toString());
-        } catch (Exception e) { e.printStackTrace(); }
-    }
-
-    private void reconnect() {
-        new android.os.Handler().postDelayed(this::connectWebSocket, 3000);
+            return arr.toString();
+        } catch (Exception e) {
+            return "[]";
+        }
     }
 
     private void sendMessage(String text) {
         appendChat("Tú: " + text);
         try {
+            String finalText = text;
+            if (hasFileKeyword(text)) {
+                String path = Environment.getExternalStorageDirectory().getAbsolutePath();
+                String files = getFileList(path);
+                finalText = text + "\n[Archivos en el dispositivo: " + files + "]";
+            }
             JSONObject obj = new JSONObject();
-            obj.put("text", text);
+            obj.put("text", finalText);
             webSocket.send(obj.toString());
         } catch (Exception e) { e.printStackTrace(); }
     }
@@ -153,14 +160,16 @@ public class MainActivity extends AppCompatActivity {
         sv.post(() -> sv.fullScroll(ScrollView.FOCUS_DOWN));
     }
 
+    private void reconnect() {
+        new android.os.Handler().postDelayed(this::connectWebSocket, 3000);
+    }
+
     private void setupSpeechRecognizer() {
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
             @Override public void onResults(Bundle results) {
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                if (matches != null && !matches.isEmpty()) {
-                    sendMessage(matches.get(0));
-                }
+                if (matches != null && !matches.isEmpty()) sendMessage(matches.get(0));
                 isListening = false;
             }
             @Override public void onError(int error) { isListening = false; }
