@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0a0a0a"
+    android:padding="16dp">
+
+    <TextView
+        android:text="JARVIS"
+        android:textColor="#FFD700"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:fontFamily="serif"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="12dp"/>
+
+    <ScrollView
+        android:id="@+id/scrollView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#111111"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/chatView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:lineSpacingExtra="4dp"/>
+    </ScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingTop="8dp">
+
+        <EditText
+            android:id="@+id/inputField"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Habla con Jarvis..."
+            android:hintTextColor="#888888"
+            android:textColor="#FFFFFF"
+            android:background="#222222"
+            android:padding="10dp"/>
+
+        <Button
+            android:id="@+id/micBtn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🎤"
+            android:background="#1a1a1a"
+            android:textSize="20sp"/>
+
+        <Button
+            android:id="@+id/sendBtn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="→"
+            android:background="#FFD700"
+            android:textColor="#000000"
+            android:textStyle="bold"/>
+    </LinearLayout>
+</LinearLayout>
