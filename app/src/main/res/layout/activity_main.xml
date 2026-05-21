@@ -46,7 +46,6 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:hint="Habla con Jarvis..."
-            android:hintTextColor="#888888"
             android:textColor="#FFFFFF"
             android:background="#222222"
             android:padding="10dp"/>
