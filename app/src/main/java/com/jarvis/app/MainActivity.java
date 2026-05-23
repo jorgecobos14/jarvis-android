@@ -32,7 +32,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String[] FILE_KEYWORDS = {
         "archivos", "carpetas", "archivo", "carpeta", "tengo", "storage",
-        "descargas", "documentos", "fotos", "música", "videos"
+        "descargas", "documentos", "fotos", "música", "musica", "videos"
     };
 
     @Override
@@ -87,6 +87,18 @@ public class MainActivity extends AppCompatActivity {
             .build();
         webSocket = client.newWebSocket(request, new WebSocketListener() {
             @Override
+            public void onOpen(WebSocket ws, Response response) {
+                try {
+                    String files = getFileList(
+                        Environment.getExternalStorageDirectory().getAbsolutePath()
+                    );
+                    JSONObject ctx = new JSONObject();
+                    ctx.put("text", "[CONTEXTO INICIAL DEL DISPOSITIVO]\nArchivos y carpetas:\n" + files);
+                    ws.send(ctx.toString());
+                } catch (Exception e) { e.printStackTrace(); }
+            }
+
+            @Override
             public void onMessage(WebSocket ws, String text) {
                 try {
                     JSONObject obj = new JSONObject(text);
@@ -95,6 +107,7 @@ public class MainActivity extends AppCompatActivity {
                     runOnUiThread(() -> appendChat("Jarvis: " + clean));
                 } catch (Exception e) { e.printStackTrace(); }
             }
+
             @Override
             public void onFailure(WebSocket ws, Throwable t, Response r) {
                 runOnUiThread(() -> appendChat("[Reconectando...]"));
@@ -119,23 +132,49 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
+    private String getSpecificPath(String text) {
+        String lower = text.toLowerCase();
+        if (lower.contains("descarga")) {
+            return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath();
+        } else if (lower.contains("foto") || lower.contains("dcim") || lower.contains("camara") || lower.contains("cámara")) {
+            return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).getAbsolutePath();
+        } else if (lower.contains("documento")) {
+            return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS).getAbsolutePath();
+        } else if (lower.contains("música") || lower.contains("musica")) {
+            return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath();
+        } else if (lower.contains("video")) {
+            return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES).getAbsolutePath();
+        } else {
+            return Environment.getExternalStorageDirectory().getAbsolutePath();
+        }
+    }
+
     private String getFileList(String path) {
         try {
-            File dir = new File(path);
-            File[] files = dir.listFiles();
             JSONArray arr = new JSONArray();
-            if (files != null) {
-                for (File f : files) {
-                    JSONObject fo = new JSONObject();
-                    fo.put("nombre", f.getName());
-                    fo.put("tipo", f.isDirectory() ? "carpeta" : "archivo");
-                    fo.put("tamaño_kb", f.length() / 1024);
-                    arr.put(fo);
-                }
-            }
+            listRecursive(new File(path), arr, 0);
             return arr.toString();
         } catch (Exception e) {
             return "[]";
+        }
+    }
+
+    private void listRecursive(File dir, JSONArray arr, int depth) {
+        if (depth > 4) return;
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        for (File f : files) {
+            try {
+                JSONObject fo = new JSONObject();
+                fo.put("nombre", f.getName());
+                fo.put("ruta", f.getAbsolutePath());
+                fo.put("tipo", f.isDirectory() ? "carpeta" : "archivo");
+                fo.put("tamaño_kb", f.length() / 1024);
+                arr.put(fo);
+                if (f.isDirectory()) {
+                    listRecursive(f, arr, depth + 1);
+                }
+            } catch (Exception e) { e.printStackTrace(); }
         }
     }
 
@@ -144,9 +183,9 @@ public class MainActivity extends AppCompatActivity {
         try {
             String finalText = text;
             if (hasFileKeyword(text)) {
-                String path = Environment.getExternalStorageDirectory().getAbsolutePath();
+                String path = getSpecificPath(text);
                 String files = getFileList(path);
-                finalText = text + "\n[Archivos en el dispositivo: " + files + "]";
+                finalText = text + "\n[Archivos en " + path + ": " + files + "]";
             }
             JSONObject obj = new JSONObject();
             obj.put("text", finalText);
@@ -203,3 +242,4 @@ public class MainActivity extends AppCompatActivity {
         if (speechRecognizer != null) speechRecognizer.destroy();
     }
 }
+
